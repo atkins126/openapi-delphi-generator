@@ -1362,6 +1362,7 @@ function TOpenApiImporter.GenerateServiceInterface(MetaService: TMetaService): T
 var
   Service: TCodeTypeDeclaration;
   RouteAttr: TCodeAttributeDeclaration;
+  GuidStr: string;
 begin
   Service := FClientUnit.FindType(MetaService.InterfaceName);
   if Service <> nil then Exit(Service);
@@ -1372,6 +1373,11 @@ begin
   Service.BaseType.BaseType := 'IInvokable';
   Service.Name := MetaService.InterfaceName;
   Service.InterfaceGuid := TGUID.NewGuid;
+  if Options.ServiceOptions.InterfaceGuids.TryGetValue(MetaService.InterfaceName, GuidStr) then
+    try
+      Service.InterfaceGuid := StringToGuid(GuidStr);
+    except
+    end;
   GenerateXmlComments(Service.Comments, 'summary', MetaService.Description);
 
   if Options.XDataService then
@@ -1425,6 +1431,7 @@ procedure TOpenApiImporter.DoSolveServiceOperation(var ServiceName, ServiceDescr
   PathItem: TPathItem; Operation: TOperation);
 var
   Tag: TTag;
+  P: Integer;
 begin
   ServiceDescription := '';
   case Options.ServiceOptions.SolvingMode of
@@ -1440,7 +1447,15 @@ begin
         else
           ServiceName := '';
         OperationName := Operation.OperationId;
-      end
+      end;
+    TServiceSolvingMode.MultipleClientsFromXDataOperationId:
+      begin
+        P := Pos('.', Operation.OperationId);
+        ServiceName := Copy(Operation.OperationId, 1, P - 1);
+        OperationName := Copy(Operation.OperationId, P + 1);
+        if StartsText('I', ServiceName) and EndsText('Service', ServiceName) then
+          ServiceName := Copy(ServiceName, 2, Length(ServiceName) - 8);
+      end;
   else
     // TServiceSolvingMode.SingleClientFromOperationId
     ServiceName := '';
@@ -1475,12 +1490,9 @@ begin
 end;
 
 function TOpenApiImporter.ProcessNaming(const S: string; Options: TNamingOptions): string;
-var
-  Index: Integer;
 begin
-  Index := Options.Mapping.IndexOfName(S);
-  if Index >= 0 then
-    Exit(Options.Mapping.ValueFromIndex[Index]);
+  if Options.Mapping.TryGetValue(S, Result) then
+    Exit;
 
   Result := ToId(S);
   if Options.PascalCase then
@@ -1489,6 +1501,9 @@ begin
     Result := Format(Options.FormatString, [Result]);
   if TDelphiCodeGenerator.IsReservedWord(Result) then
     Result := '&' + Result;
+
+  if Options.Mapping.ContainsKey(Result) then
+    Result := Options.Mapping[Result];
 end;
 
 procedure TOpenApiImporter.ProcessOperation(const Path: string; PathItem: TPathItem;
@@ -1509,8 +1524,8 @@ begin
   DoSolveServiceOperation(ServiceName, ServiceDescription, OperationName, Path, PathItem, Operation);
 
   // Find or create the service
-  Service := FMetaClient.FindService(ServiceName);
   DoGetServiceName(ServiceName, ServiceName);
+  Service := FMetaClient.FindService(ServiceName);
   if Service = nil then
   begin
     Service := TMetaService.Create;
@@ -1528,6 +1543,8 @@ begin
   MetaMethod := TMetaMethod.Create;
   Service.Methods.Add(MetaMethod);
   MetaMethod.CodeName := MethodName;
+  if MetaMethod.CodeName = '' then
+    MetaMethod.Ignore := True;
   BuildMetaMethod(MetaMethod, Path, Operation, HttpMethod);
 end;
 
