@@ -22,6 +22,7 @@ type
     function StatusCode: Integer;
     function ContentAsString: string;
     function ContentAsBytes: TBytes;
+    function GetHeader(const Name: string): string;
   end;
 
   TSparkleRestRequestFactory = class(TInterfacedObject, IRestRequestFactory)
@@ -84,6 +85,11 @@ begin
   inherited;
 end;
 
+function TSparkleRestResponse.GetHeader(const Name: string): string;
+begin
+  Result := FResponse.Headers.Get(Name);
+end;
+
 function TSparkleRestResponse.StatusCode: Integer;
 begin
   Result := FResponse.StatusCode;
@@ -96,7 +102,7 @@ end;
 
 function TSparkleRestResponse.ContentAsString: string;
 begin
-  Result := TEncoding.UTF8.GetString(FResponse.ContentAsBytes);
+  Result := TEncoding.UTF8.GetString(ContentAsBytes);
 end;
 
 end.

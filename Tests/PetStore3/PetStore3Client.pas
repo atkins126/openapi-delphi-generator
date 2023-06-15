@@ -1,20 +1,21 @@
-unit PetStoreClient;
+unit PetStore3Client;
 
 interface
 
 uses
   SysUtils, 
   OpenApiRest, 
-  PetStoreJson, 
-  PetStoreDtos;
+  OpenApiUtils, 
+  PetStore3Json, 
+  PetStore3Dtos;
 
 type
   TRestService = class;
   TPetService = class;
   TStoreService = class;
   TUserService = class;
-  TPetStoreConfig = class;
-  TPetStoreClient = class;
+  TPetStore3Config = class;
+  TPetStore3Client = class;
   
   TRestService = class(TCustomRestService)
   protected
@@ -28,32 +29,25 @@ type
   IPetService = interface(IInvokable)
     ['{1B571204-1E67-4BF3-A9E9-9C1489E8FF0C}']
     /// <summary>
-    /// uploads an image
-    /// </summary>
-    /// <param name="PetId">
-    /// ID of pet to update
-    /// </param>
-    /// <param name="AdditionalMetadata">
-    /// Additional data to pass to server
-    /// </param>
-    /// <param name="&File">
-    /// file to upload
-    /// </param>
-    function UploadFile(PetId: Int64; AdditionalMetadata: string; &File: TBytes): TApiResponse;
-    /// <summary>
     /// Update an existing pet
     /// </summary>
     /// <param name="Body">
-    /// Pet object that needs to be added to the store
+    /// Update an existent pet in the store
     /// </param>
-    procedure UpdatePet(Body: TPet);
+    /// <remarks>
+    /// Update an existing pet by Id
+    /// </remarks>
+    function UpdatePet(Body: TPet): TPet;
     /// <summary>
     /// Add a new pet to the store
     /// </summary>
     /// <param name="Body">
-    /// Pet object that needs to be added to the store
+    /// Create a new pet in the store
     /// </param>
-    procedure AddPet(Body: TPet);
+    /// <remarks>
+    /// Add a new pet to the store
+    /// </remarks>
+    function AddPet(Body: TPet): TPet;
     /// <summary>
     /// Finds Pets by status
     /// </summary>
@@ -63,7 +57,7 @@ type
     /// <remarks>
     /// Multiple status values can be provided with comma separated strings
     /// </remarks>
-    function FindPetsByStatus(Status: stringArray): TPetList;
+    function FindPetsByStatus(Status: string): TPetList;
     /// <summary>
     /// Finds Pets by tags
     /// </summary>
@@ -91,10 +85,10 @@ type
     /// ID of pet that needs to be updated
     /// </param>
     /// <param name="Name">
-    /// Updated name of the pet
+    /// Name of pet that needs to be updated
     /// </param>
     /// <param name="Status">
-    /// Updated status of the pet
+    /// Status of pet that needs to be updated
     /// </param>
     procedure UpdatePetWithForm(PetId: Int64; Name: string; Status: string);
     /// <summary>
@@ -108,28 +102,18 @@ type
   
   TPetService = class(TRestService, IPetService)
   public
-    /// <param name="PetId">
-    /// ID of pet to update
-    /// </param>
-    /// <param name="AdditionalMetadata">
-    /// Additional data to pass to server
-    /// </param>
-    /// <param name="&File">
-    /// file to upload
-    /// </param>
-    function UploadFile(PetId: Int64; AdditionalMetadata: string; &File: TBytes): TApiResponse;
     /// <param name="Body">
-    /// Pet object that needs to be added to the store
+    /// Update an existent pet in the store
     /// </param>
-    procedure UpdatePet(Body: TPet);
+    function UpdatePet(Body: TPet): TPet;
     /// <param name="Body">
-    /// Pet object that needs to be added to the store
+    /// Create a new pet in the store
     /// </param>
-    procedure AddPet(Body: TPet);
+    function AddPet(Body: TPet): TPet;
     /// <param name="Status">
     /// Status values that need to be considered for filter
     /// </param>
-    function FindPetsByStatus(Status: stringArray): TPetList;
+    function FindPetsByStatus(Status: string): TPetList;
     /// <param name="Tags">
     /// Tags to filter by
     /// </param>
@@ -142,10 +126,10 @@ type
     /// ID of pet that needs to be updated
     /// </param>
     /// <param name="Name">
-    /// Updated name of the pet
+    /// Name of pet that needs to be updated
     /// </param>
     /// <param name="Status">
-    /// Updated status of the pet
+    /// Status of pet that needs to be updated
     /// </param>
     procedure UpdatePetWithForm(PetId: Int64; Name: string; Status: string);
     /// <param name="PetId">
@@ -160,20 +144,27 @@ type
   IStoreService = interface(IInvokable)
     ['{7C716BC0-88A7-431F-9232-5CA18E91B492}']
     /// <summary>
+    /// Returns pet inventories by status
+    /// </summary>
+    /// <remarks>
+    /// Returns a map of status codes to quantities
+    /// </remarks>
+    function GetInventory: TGetInventoryOutput;
+    /// <summary>
     /// Place an order for a pet
     /// </summary>
-    /// <param name="Body">
-    /// order placed for purchasing the pet
-    /// </param>
+    /// <remarks>
+    /// Place a new order in the store
+    /// </remarks>
     function PlaceOrder(Body: TOrder): TOrder;
     /// <summary>
     /// Find purchase order by ID
     /// </summary>
     /// <param name="OrderId">
-    /// ID of pet that needs to be fetched
+    /// ID of order that needs to be fetched
     /// </param>
     /// <remarks>
-    /// For valid response try integer IDs with value >= 1 and <= 10. Other values will generated exceptions
+    /// For valid response try integer IDs with value <= 5 or > 10. Other values will generate exceptions.
     /// </remarks>
     function GetOrderById(OrderId: Int64): TOrder;
     /// <summary>
@@ -183,33 +174,23 @@ type
     /// ID of the order that needs to be deleted
     /// </param>
     /// <remarks>
-    /// For valid response try integer IDs with positive integer value. Negative or non-integer values will generate API errors
+    /// For valid response try integer IDs with value < 1000. Anything above 1000 or nonintegers will generate API errors
     /// </remarks>
     procedure DeleteOrder(OrderId: Int64);
-    /// <summary>
-    /// Returns pet inventories by status
-    /// </summary>
-    /// <remarks>
-    /// Returns a map of status codes to quantities
-    /// </remarks>
-    function GetInventory: TGetInventoryOutput;
   end;
   
   TStoreService = class(TRestService, IStoreService)
   public
-    /// <param name="Body">
-    /// order placed for purchasing the pet
-    /// </param>
+    function GetInventory: TGetInventoryOutput;
     function PlaceOrder(Body: TOrder): TOrder;
     /// <param name="OrderId">
-    /// ID of pet that needs to be fetched
+    /// ID of order that needs to be fetched
     /// </param>
     function GetOrderById(OrderId: Int64): TOrder;
     /// <param name="OrderId">
     /// ID of the order that needs to be deleted
     /// </param>
     procedure DeleteOrder(OrderId: Int64);
-    function GetInventory: TGetInventoryOutput;
   end;
   
   /// <summary>
@@ -218,49 +199,22 @@ type
   IUserService = interface(IInvokable)
     ['{6AF38CCE-1A86-4473-9BC7-CAA13A24F719}']
     /// <summary>
-    /// Creates list of users with given input array
+    /// Create user
     /// </summary>
     /// <param name="Body">
-    /// List of user object
-    /// </param>
-    procedure CreateUsersWithArrayInput(Body: TUserList);
-    /// <summary>
-    /// Creates list of users with given input array
-    /// </summary>
-    /// <param name="Body">
-    /// List of user object
-    /// </param>
-    procedure CreateUsersWithListInput(Body: TUserList);
-    /// <summary>
-    /// Get user by user name
-    /// </summary>
-    /// <param name="Username">
-    /// The name that needs to be fetched. Use user1 for testing. 
-    /// </param>
-    function GetUserByName(Username: string): TUser;
-    /// <summary>
-    /// Updated user
-    /// </summary>
-    /// <param name="Username">
-    /// name that need to be updated
-    /// </param>
-    /// <param name="Body">
-    /// Updated user object
+    /// Created user object
     /// </param>
     /// <remarks>
     /// This can only be done by the logged in user.
     /// </remarks>
-    procedure UpdateUser(Username: string; Body: TUser);
+    function CreateUser(Body: TUser): TUser;
     /// <summary>
-    /// Delete user
+    /// Creates list of users with given input array
     /// </summary>
-    /// <param name="Username">
-    /// The name that needs to be deleted
-    /// </param>
     /// <remarks>
-    /// This can only be done by the logged in user.
+    /// Creates list of users with given input array
     /// </remarks>
-    procedure DeleteUser(Username: string);
+    function CreateUsersWithListInput(Body: TUserList): TUser;
     /// <summary>
     /// Logs user into the system
     /// </summary>
@@ -276,42 +230,44 @@ type
     /// </summary>
     procedure LogoutUser;
     /// <summary>
-    /// Create user
+    /// Get user by user name
     /// </summary>
+    /// <param name="Username">
+    /// The name that needs to be fetched. Use user1 for testing. 
+    /// </param>
+    function GetUserByName(Username: string): TUser;
+    /// <summary>
+    /// Update user
+    /// </summary>
+    /// <param name="Username">
+    /// name that need to be deleted
+    /// </param>
     /// <param name="Body">
-    /// Created user object
+    /// Update an existent user in the store
     /// </param>
     /// <remarks>
     /// This can only be done by the logged in user.
     /// </remarks>
-    procedure CreateUser(Body: TUser);
+    procedure UpdateUser(Username: string; Body: TUser);
+    /// <summary>
+    /// Delete user
+    /// </summary>
+    /// <param name="Username">
+    /// The name that needs to be deleted
+    /// </param>
+    /// <remarks>
+    /// This can only be done by the logged in user.
+    /// </remarks>
+    procedure DeleteUser(Username: string);
   end;
   
   TUserService = class(TRestService, IUserService)
   public
     /// <param name="Body">
-    /// List of user object
+    /// Created user object
     /// </param>
-    procedure CreateUsersWithArrayInput(Body: TUserList);
-    /// <param name="Body">
-    /// List of user object
-    /// </param>
-    procedure CreateUsersWithListInput(Body: TUserList);
-    /// <param name="Username">
-    /// The name that needs to be fetched. Use user1 for testing. 
-    /// </param>
-    function GetUserByName(Username: string): TUser;
-    /// <param name="Username">
-    /// name that need to be updated
-    /// </param>
-    /// <param name="Body">
-    /// Updated user object
-    /// </param>
-    procedure UpdateUser(Username: string; Body: TUser);
-    /// <param name="Username">
-    /// The name that needs to be deleted
-    /// </param>
-    procedure DeleteUser(Username: string);
+    function CreateUser(Body: TUser): TUser;
+    function CreateUsersWithListInput(Body: TUserList): TUser;
     /// <param name="Username">
     /// The user name for login
     /// </param>
@@ -320,18 +276,29 @@ type
     /// </param>
     function LoginUser(Username: string; Password: string): string;
     procedure LogoutUser;
-    /// <param name="Body">
-    /// Created user object
+    /// <param name="Username">
+    /// The name that needs to be fetched. Use user1 for testing. 
     /// </param>
-    procedure CreateUser(Body: TUser);
+    function GetUserByName(Username: string): TUser;
+    /// <param name="Username">
+    /// name that need to be deleted
+    /// </param>
+    /// <param name="Body">
+    /// Update an existent user in the store
+    /// </param>
+    procedure UpdateUser(Username: string; Body: TUser);
+    /// <param name="Username">
+    /// The name that needs to be deleted
+    /// </param>
+    procedure DeleteUser(Username: string);
   end;
   
-  TPetStoreConfig = class(TCustomRestConfig)
+  TPetStore3Config = class(TCustomRestConfig)
   public
     constructor Create;
   end;
   
-  IPetStoreClient = interface(IRestClient)
+  IPetStore3Client = interface(IRestClient)
     /// <summary>
     /// Everything about your Pets
     /// </summary>
@@ -346,7 +313,7 @@ type
     function User: IUserService;
   end;
   
-  TPetStoreClient = class(TCustomRestClient, IPetStoreClient)
+  TPetStore3Client = class(TCustomRestClient, IPetStore3Client)
   public
     function Pet: IPetService;
     function Store: IStoreService;
@@ -370,22 +337,7 @@ end;
 
 { TPetService }
 
-function TPetService.UploadFile(PetId: Int64; AdditionalMetadata: string; &File: TBytes): TApiResponse;
-var
-  Request: IRestRequest;
-  Response: IRestResponse;
-begin
-  Request := CreateRequest('/pet/{petId}/uploadImage', 'POST');
-  Request.AddUrlParam('petId', IntToStr(PetId));
-  raise Exception.Create('Form param ''AdditionalMetadata'' not supported');
-  raise Exception.Create('Form param ''&File'' not supported');
-  Request.AddHeader('Accept', 'application/json');
-  Response := Request.Execute;
-  CheckError(Response);
-  Result := Converter.TApiResponseFromJson(Response.ContentAsString);
-end;
-
-procedure TPetService.UpdatePet(Body: TPet);
+function TPetService.UpdatePet(Body: TPet): TPet;
 var
   Request: IRestRequest;
   Response: IRestResponse;
@@ -393,11 +345,13 @@ begin
   Request := CreateRequest('/pet', 'PUT');
   Request.AddBody(Converter.TPetToJson(Body));
   Request.AddHeader('Content-Type', 'application/json');
+  Request.AddHeader('Accept', 'application/json');
   Response := Request.Execute;
   CheckError(Response);
+  Result := Converter.TPetFromJson(Response.ContentAsString);
 end;
 
-procedure TPetService.AddPet(Body: TPet);
+function TPetService.AddPet(Body: TPet): TPet;
 var
   Request: IRestRequest;
   Response: IRestResponse;
@@ -405,19 +359,19 @@ begin
   Request := CreateRequest('/pet', 'POST');
   Request.AddBody(Converter.TPetToJson(Body));
   Request.AddHeader('Content-Type', 'application/json');
+  Request.AddHeader('Accept', 'application/json');
   Response := Request.Execute;
   CheckError(Response);
+  Result := Converter.TPetFromJson(Response.ContentAsString);
 end;
 
-function TPetService.FindPetsByStatus(Status: stringArray): TPetList;
+function TPetService.FindPetsByStatus(Status: string): TPetList;
 var
   Request: IRestRequest;
-  I: Integer;
   Response: IRestResponse;
 begin
   Request := CreateRequest('/pet/findByStatus', 'GET');
-  for I := 0 to Length(Status) - 1 do
-    Request.AddQueryParam('status', Status[I]);
+  Request.AddQueryParam('status', Status);
   Request.AddHeader('Accept', 'application/json');
   Response := Request.Execute;
   CheckError(Response);
@@ -459,8 +413,8 @@ var
 begin
   Request := CreateRequest('/pet/{petId}', 'POST');
   Request.AddUrlParam('petId', IntToStr(PetId));
-  raise Exception.Create('Form param ''Name'' not supported');
-  raise Exception.Create('Form param ''Status'' not supported');
+  Request.AddQueryParam('name', Name);
+  Request.AddQueryParam('status', Status);
   Response := Request.Execute;
   CheckError(Response);
 end;
@@ -478,6 +432,18 @@ begin
 end;
 
 { TStoreService }
+
+function TStoreService.GetInventory: TGetInventoryOutput;
+var
+  Request: IRestRequest;
+  Response: IRestResponse;
+begin
+  Request := CreateRequest('/store/inventory', 'GET');
+  Request.AddHeader('Accept', 'application/json');
+  Response := Request.Execute;
+  CheckError(Response);
+  Result := Converter.TGetInventoryOutputFromJson(Response.ContentAsString);
+end;
 
 function TStoreService.PlaceOrder(Body: TOrder): TOrder;
 var
@@ -517,33 +483,23 @@ begin
   CheckError(Response);
 end;
 
-function TStoreService.GetInventory: TGetInventoryOutput;
+{ TUserService }
+
+function TUserService.CreateUser(Body: TUser): TUser;
 var
   Request: IRestRequest;
   Response: IRestResponse;
 begin
-  Request := CreateRequest('/store/inventory', 'GET');
+  Request := CreateRequest('/user', 'POST');
+  Request.AddBody(Converter.TUserToJson(Body));
+  Request.AddHeader('Content-Type', 'application/json');
   Request.AddHeader('Accept', 'application/json');
   Response := Request.Execute;
   CheckError(Response);
-  Result := Converter.TGetInventoryOutputFromJson(Response.ContentAsString);
+  Result := Converter.TUserFromJson(Response.ContentAsString);
 end;
 
-{ TUserService }
-
-procedure TUserService.CreateUsersWithArrayInput(Body: TUserList);
-var
-  Request: IRestRequest;
-  Response: IRestResponse;
-begin
-  Request := CreateRequest('/user/createWithArray', 'POST');
-  Request.AddBody(Converter.TUserListToJson(Body));
-  Request.AddHeader('Content-Type', 'application/json');
-  Response := Request.Execute;
-  CheckError(Response);
-end;
-
-procedure TUserService.CreateUsersWithListInput(Body: TUserList);
+function TUserService.CreateUsersWithListInput(Body: TUserList): TUser;
 var
   Request: IRestRequest;
   Response: IRestResponse;
@@ -551,6 +507,32 @@ begin
   Request := CreateRequest('/user/createWithList', 'POST');
   Request.AddBody(Converter.TUserListToJson(Body));
   Request.AddHeader('Content-Type', 'application/json');
+  Request.AddHeader('Accept', 'application/json');
+  Response := Request.Execute;
+  CheckError(Response);
+  Result := Converter.TUserFromJson(Response.ContentAsString);
+end;
+
+function TUserService.LoginUser(Username: string; Password: string): string;
+var
+  Request: IRestRequest;
+  Response: IRestResponse;
+begin
+  Request := CreateRequest('/user/login', 'GET');
+  Request.AddQueryParam('username', Username);
+  Request.AddQueryParam('password', Password);
+  Request.AddHeader('Accept', 'application/json');
+  Response := Request.Execute;
+  CheckError(Response);
+  Result := Converter.stringFromJson(Response.ContentAsString);
+end;
+
+procedure TUserService.LogoutUser;
+var
+  Request: IRestRequest;
+  Response: IRestResponse;
+begin
+  Request := CreateRequest('/user/logout', 'GET');
   Response := Request.Execute;
   CheckError(Response);
 end;
@@ -592,70 +574,34 @@ begin
   CheckError(Response);
 end;
 
-function TUserService.LoginUser(Username: string; Password: string): string;
-var
-  Request: IRestRequest;
-  Response: IRestResponse;
-begin
-  Request := CreateRequest('/user/login', 'GET');
-  Request.AddQueryParam('username', Username);
-  Request.AddQueryParam('password', Password);
-  Request.AddHeader('Accept', 'application/json');
-  Response := Request.Execute;
-  CheckError(Response);
-  Result := Converter.stringFromJson(Response.ContentAsString);
-end;
+{ TPetStore3Config }
 
-procedure TUserService.LogoutUser;
-var
-  Request: IRestRequest;
-  Response: IRestResponse;
-begin
-  Request := CreateRequest('/user/logout', 'GET');
-  Response := Request.Execute;
-  CheckError(Response);
-end;
-
-procedure TUserService.CreateUser(Body: TUser);
-var
-  Request: IRestRequest;
-  Response: IRestResponse;
-begin
-  Request := CreateRequest('/user', 'POST');
-  Request.AddBody(Converter.TUserToJson(Body));
-  Request.AddHeader('Content-Type', 'application/json');
-  Response := Request.Execute;
-  CheckError(Response);
-end;
-
-{ TPetStoreConfig }
-
-constructor TPetStoreConfig.Create;
+constructor TPetStore3Config.Create;
 begin
   inherited Create;
-  BaseUrl := 'https://petstore.swagger.io/v2';
+  BaseUrl := 'https://petstore3.swagger.io/api/v3';
 end;
 
-{ TPetStoreClient }
+{ TPetStore3Client }
 
-function TPetStoreClient.Pet: IPetService;
+function TPetStore3Client.Pet: IPetService;
 begin
   Result := TPetService.Create(Config);
 end;
 
-function TPetStoreClient.Store: IStoreService;
+function TPetStore3Client.Store: IStoreService;
 begin
   Result := TStoreService.Create(Config);
 end;
 
-function TPetStoreClient.User: IUserService;
+function TPetStore3Client.User: IUserService;
 begin
   Result := TUserService.Create(Config);
 end;
 
-constructor TPetStoreClient.Create;
+constructor TPetStore3Client.Create;
 begin
-  inherited Create(TPetStoreConfig.Create);
+  inherited Create(TPetStore3Config.Create);
 end;
 
 end.

@@ -3,8 +3,8 @@ unit OpenApiGen.Main;
 interface
 
 uses
-  System.SysUtils, System.StrUtils, System.IOUtils,
-  OpenApi.Document, OpenApi.Json.Serializer, OpenApiGen.Builder, OpenApiGen.Options, OpenApiGen.CommandLine;
+  System.SysUtils, System.StrUtils, System.Classes, System.IOUtils,
+  OpenApi.Document, OpenApiGen.Builder, OpenApiGen.Options, OpenApiGen.CommandLine;
 
 procedure Run;
 
@@ -12,8 +12,13 @@ implementation
 
 uses
   System.Net.HttpClient,
-  Bcl.Code.MetaClasses,
-  Bcl.Code.DelphiGenerator;
+  Bcl.Json.Reader,
+  Sparkle.Uri,
+  OpenApiGen.V2.Importer,
+  OpenApiGen.V3.Importer;
+
+type
+  TOpenApiVersion = (Swagger20, OpenApi30);
 
 function ProductVersion: string;
 var
@@ -48,65 +53,80 @@ begin
   end;
 end;
 
-function LoadContent(const Source: string): string;
+function LoadContent(const Source: string; Options: TBuilderOptions): string;
+var
+  Uri: IUri;
 begin
   if StartsText('http://', Source) or StartsText('https://', Source) then
-    Result := LoadHttpContent(Source)
+  begin
+    Result := LoadHttpContent(Source);
+    Uri := TUri.Create(Source);
+    if Options.DocumentUrl = '' then
+      Options.DocumentUrl := Uri.Scheme + '://' + Uri.Authority;
+  end
   else
-    Result := TFile.ReadAllText(Source);
+    Result := TFile.ReadAllText(Source, TEncoding.UTF8);
 end;
 
-procedure GenerateSource(Importer: TOpenApiImporter; const OutputFolder: string);
+function GetOpenApiVersion(const Content: string): TOpenApiVersion;
 var
-  Generator: TDelphiCodeGenerator;
-  Source: string;
-  FileName: string;
-  CodeUnit: TCodeUnit;
-  FullOutputFolder: string;
+  Stream: TStream;
+  Reader: TJsonReader;
+  Version: string;
+  Prop: string;
 begin
-  FullOutputFolder := TPath.GetFullPath(OutputFolder);
-//  ForceDirectories(FullOutputFolder);
-  Generator := TDelphiCodeGenerator.Create;
   try
-    Generator.StructureStatements := True;
-    Generator.ReservedWordMode := TReservedWordMode.Ignore;
-    for CodeUnit in Importer.CodeUnits do
-    begin
-      Source := Generator.GenerateCodeFromUnit(CodeUnit);
-      FileName := TPath.ChangeExtension(CodeUnit.Name, '.pas');
-      FileName := TPath.Combine(OutputFolder, FileName);
-      TFile.WriteAllText(FileName, Source);
+    Stream := TStringStream.Create(Content, TEncoding.UTF8, False);
+    try
+      Reader := TJsonReader.Create(Stream);
+      try
+        Reader.ReadBeginObject;
+        Version := '';
+        while Reader.HasNext do
+        begin
+          Prop := Reader.ReadName;
+          if (Prop = 'swagger') and StartsStr('2.0', Reader.ReadString) then
+            Exit(Swagger20);
+          if (Prop = 'openapi') and StartsStr('3.0', Reader.ReadString) then
+            Exit(OpenApi30);
+          Reader.SkipValue;
+        end;
+        raise Exception.Create('Version property not found');
+      finally
+        Reader.Free;
+      end;
+    finally
+      Stream.Free;
     end;
-
-    WriteLn(Format('Files generated succesfully in folder %s.', [FullOutputFolder]));
-  finally
-    Generator.Free;
+  except
+    on E: Exception do
+      raise Exception.CreateFmt('Cannot retrieve OpenApi version - %s (%s)', [E.Message, E.ClassName]);
   end;
 end;
 
 procedure Run;
 var
   GenOptions: TGeneratorOptions;
-  Document: TOpenApiDocument;
-  Importer: TOpenApiImporter;
+  Options: TBuilderOptions;
+  Content: string;
 begin
   WriteHeader;
   GenOptions := TGeneratorOptions.Create;
   try
-    Importer := TOpenApiImporter.Create;
+    Options := TBuilderOptions.Create;
     try
-      if ParseCommandLine(GenOptions, Importer.Options) then
+      if ParseCommandLine(GenOptions, Options) then
       begin
-        Document := TOpenApiDeserializer.JsonToDocument(LoadContent(GenOptions.InputDocument));
-        try
-          Importer.Build(Document);
-          GenerateSource(Importer, GenOptions.OutputFolder);
-        finally
-          Document.Free;
+        Content := LoadContent(GenOptions.InputDocument, Options);
+        case GetOpenApiVersion(Content) of
+          Swagger20: GenerateSourceV2(Content, Options, GenOptions);
+          OpenApi30: GenerateSourceV3(Content, Options, GenOptions);
+        else
+          raise Exception.Create('Unsupported OpenAPI version');
         end;
       end;
     finally
-      Importer.Free;
+      Options.Free;
     end;
   finally
     GenOptions.Free;

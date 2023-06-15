@@ -11,7 +11,12 @@ uses
   OpenApiGen.Builder in 'OpenApiGen.Builder.pas',
   OpenApiGen.Main in 'OpenApiGen.Main.pas',
   OpenApiGen.Options in 'OpenApiGen.Options.pas',
-  OpenApiGen.CommandLine in 'OpenApiGen.CommandLine.pas';
+  OpenApiGen.CommandLine in 'OpenApiGen.CommandLine.pas',
+  OpenApiGen.V2.Importer in 'OpenApiGen.V2.Importer.pas',
+  OpenApiGen.V3.Importer in 'OpenApiGen.V3.Importer.pas',
+  OpenApiGen.V2.Analyzer in 'OpenApiGen.V2.Analyzer.pas',
+  OpenApiGen.CustomAnalyzer in 'OpenApiGen.CustomAnalyzer.pas',
+  OpenApiGen.V3.Analyzer in 'OpenApiGen.V3.Analyzer.pas';
 
 begin
 {$IFDEF DEBUG}

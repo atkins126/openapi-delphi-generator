@@ -1,23 +1,21 @@
-unit TestPetStoreClient;
+unit TestPetStore3Client;
 
 interface
 
 uses
-  SysUtils, TestFramework, PetStoreClient, PetStoreDtos, OpenApiRest;
+  SysUtils, TestFramework, PetStore3Client, PetStore3Dtos, OpenApiRest;
 
 type
-  TPetStoreClientTests = class(TTestCase)
-  public
-    procedure SetUp; override;
+  TPetStore3ClientTests = class(TTestCase)
   published
     procedure CreateAndGetPet;
   end;
 
 implementation
 
-{ TPetStoreClientTests }
+{ TPetStore3ClientTests }
 
-procedure TPetStoreClientTests.CreateAndGetPet;
+procedure TPetStore3ClientTests.CreateAndGetPet;
 const
   PetId = 61341;
   CategoryId = 61341;
@@ -25,9 +23,9 @@ const
 var
   Pet: TPet;
   Tag: TTag;
-  Client: IPetStoreClient;
+  Client: IPetStore3Client;
 begin
-  Client := TPetStoreClient.Create;
+  Client := TPetStore3Client.Create;
 
   // Create the pet
   Pet := TPet.Create;
@@ -89,12 +87,7 @@ begin
   end;
 end;
 
-procedure TPetStoreClientTests.SetUp;
-begin
-  inherited;
-end;
-
 initialization
-  RegisterTest(TPetStoreClientTests.Suite);
+  RegisterTest(TPetStore3ClientTests.Suite);
 
 end.
